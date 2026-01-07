@@ -66,11 +66,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Generate release bundle
-        run: |
-          TAG=${{ steps.extract_tag.outputs.tag }}
-          make bundle VERSION=${TAG}
-
   release:
     name: Create Release with GoReleaser
     runs-on: ubuntu-latest
@@ -94,13 +89,6 @@ jobs:
         run: |
           TAG=${{ steps.extract_tag.outputs.tag }}
           make bundle VERSION=${TAG}
-
-      - name: Upload bundle to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: bundle.yaml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
