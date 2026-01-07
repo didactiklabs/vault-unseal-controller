@@ -44,10 +44,10 @@ type UnsealSpec struct {
 	// An array of vault instances to call api endpoints for unseal, example for one instance: https://myvault01.domain.local:8200
 	// +kubebuilder:validation:Required
 	VaultNodes []string `json:"vaultNodes"`
-	// Reference to secret containing threshold keys. Threshold keys are unseal keys required to unseal your vault instance(s)
+	// Reference to secret containing unseal keys required to unseal your vault instance(s)
 	// +kubebuilder:validation:Required
-	ThresholdKeysSecretRef SecretRef `json:"thresholdKeysSecretRef"`
-	// Reference to secret containing CA certificate for validating requests against vault instances (need to be in the same namespace as the threshold keys secret)
+	UnsealKeysSecretRef SecretRef `json:"unsealKeysSecretRef"`
+	// Reference to secret containing CA certificate for validating requests against vault instances (need to be in the same namespace as the unseal keys secret)
 	// +optional
 	CaCertSecret string `json:"caCertSecret,omitempty"`
 	// Boolean to define if you want to skip tls certificate validation. Set true of false (default is false)

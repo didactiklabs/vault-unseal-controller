@@ -7,10 +7,10 @@ spec:
     - https://vault-cluster-node-url-1:8200
     - https://vault-cluster-node-url-2:8200
     - https://vault-cluster-node-url-3:8200
-  thresholdKeysSecretRef:
+  unsealKeysSecretRef:
     name: thresholdkeys
     namespace: vault-unseal-controller-system
-  # Optional, but important if you have internal pki for your vault certificate (need to be in the same namespace as the threshold keys secret)
+  # Optional, but important if you have internal pki for your vault certificate (need to be in the same namespace as the unseal keys secret)
   caCertSecret: cacertificate
   # Optional, set this parameter to true if you want to skip tls certificate verification
   tlsSkipVerify: false

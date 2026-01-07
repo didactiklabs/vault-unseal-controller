@@ -49,16 +49,21 @@ spec:
               caCertSecret:
                 description: Reference to secret containing CA certificate for validating
                   requests against vault instances (need to be in the same namespace
-                  as the threshold keys secret)
+                  as the unseal keys secret)
                 type: string
               retryCount:
                 default: 3
                 description: Number of retry, default is 3
                 format: int32
                 type: integer
-              thresholdKeysSecretRef:
-                description: Reference to secret containing threshold keys. Threshold
-                  keys are unseal keys required to unseal your vault instance(s)
+              tlsSkipVerify:
+                default: false
+                description: Boolean to define if you want to skip tls certificate
+                  validation. Set true of false (default is false)
+                type: boolean
+              unsealKeysSecretRef:
+                description: Reference to secret containing unseal keys required to
+                  unseal your vault instance(s)
                 properties:
                   name:
                     description: Name of the secret
@@ -70,11 +75,6 @@ spec:
                 - name
                 - namespace
                 type: object
-              tlsSkipVerify:
-                default: false
-                description: Boolean to define if you want to skip tls certificate
-                  validation. Set true of false (default is false)
-                type: boolean
               vaultNodes:
                 description: 'An array of vault instances to call api endpoints for
                   unseal, example for one instance: https://myvault01.domain.local:8200'
@@ -82,7 +82,7 @@ spec:
                   type: string
                 type: array
             required:
-            - thresholdKeysSecretRef
+            - unsealKeysSecretRef
             - vaultNodes
             type: object
           status:

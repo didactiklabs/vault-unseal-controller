@@ -42,3 +42,13 @@ patches:
 - path: manager_metrics_patch.yaml
   target:
     kind: Deployment
+- path: unsealer_env_patch.yaml
+  target:
+    kind: Deployment
+images:
+- name: controller
+  newName: gcr.io/didactiklabs/vault-unseal-controller
+  newTag: latest
+- name: gcr.io/didactiklabs/vault-unseal-controller
+  newName: gcr.io/didactiklabs/vault-unseal-controller
+  newTag: latest
