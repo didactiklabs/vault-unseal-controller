@@ -85,7 +85,7 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !unseal.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(unseal, unsealFinalizer) {
 			// Delete all jobs before removing finalizer
-			jobNamespace := unseal.Spec.ThresholdKeysSecretRef.Namespace
+			jobNamespace := unseal.Spec.UnsealKeysSecretRef.Namespace
 			for i := range unseal.Status.SealedNodes {
 				num := strconv.Itoa(i)
 				jobName := unseal.Name + "-" + num
@@ -136,7 +136,7 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !unseal.Spec.TlsSkipVerify && unseal.Spec.CaCertSecret != "" {
 		secret := corev1.Secret{}
 		sName := types.NamespacedName{
-			Namespace: unseal.Spec.ThresholdKeysSecretRef.Namespace,
+			Namespace: unseal.Spec.UnsealKeysSecretRef.Namespace,
 			Name:      unseal.Spec.CaCertSecret,
 		}
 		err := r.Get(ctx, sName, &secret)
@@ -190,8 +190,8 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			// Check if the job already exists, if not create a new one
 			num := strconv.Itoa(i)
 			jobName := unseal.Name + "-" + num
-			// Use the namespace from the ThresholdKeysSecretRef
-			jobNamespace := unseal.Spec.ThresholdKeysSecretRef.Namespace
+			// Use the namespace from the UnsealKeysSecretRef
+			jobNamespace := unseal.Spec.UnsealKeysSecretRef.Namespace
 			err := r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: jobNamespace}, job)
 			if err != nil && apierrors.IsNotFound(err) {
 				// Define a new job
@@ -253,7 +253,7 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	case platformv1alpha1.StatusCleaning:
 		// Remove job if status is cleaning
-		jobNamespace := unseal.Spec.ThresholdKeysSecretRef.Namespace
+		jobNamespace := unseal.Spec.UnsealKeysSecretRef.Namespace
 		for i := range unseal.Status.SealedNodes {
 			num := strconv.Itoa(i)
 			jobName := unseal.Name + "-" + num
@@ -308,14 +308,14 @@ func (r *UnsealReconciler) createJob(
 	// Job Metadata
 	jobMeta := metav1.ObjectMeta{
 		Name:      jobName,
-		Namespace: unseal.Spec.ThresholdKeysSecretRef.Namespace,
+		Namespace: unseal.Spec.UnsealKeysSecretRef.Namespace,
 		Labels:    getLabels(unseal, jobName),
 	}
 
 	// Pod Volume Mounts
 	podMounts := []corev1.VolumeMount{
 		{
-			Name:      "threshold-keys",
+			Name:      "unseal-keys",
 			MountPath: keysPath,
 		},
 	}
@@ -323,10 +323,10 @@ func (r *UnsealReconciler) createJob(
 	// Pod Volumes
 	podVolumes := []corev1.Volume{
 		{
-			Name: "threshold-keys",
+			Name: "unseal-keys",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: unseal.Spec.ThresholdKeysSecretRef.Name,
+					SecretName: unseal.Spec.UnsealKeysSecretRef.Name,
 				},
 			},
 		},
@@ -378,7 +378,7 @@ func (r *UnsealReconciler) createJob(
 
 		podMounts = []corev1.VolumeMount{
 			{
-				Name:      "threshold-keys",
+				Name:      "unseal-keys",
 				MountPath: keysPath,
 			},
 			{
@@ -389,10 +389,10 @@ func (r *UnsealReconciler) createJob(
 
 		podVolumes = []corev1.Volume{
 			{
-				Name: "threshold-keys",
+				Name: "unseal-keys",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: unseal.Spec.ThresholdKeysSecretRef.Name,
+						SecretName: unseal.Spec.UnsealKeysSecretRef.Name,
 					},
 				},
 			},

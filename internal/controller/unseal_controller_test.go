@@ -51,7 +51,7 @@ var _ = Describe("Unseal Controller", func() {
 					},
 					Spec: platformv1alpha1.UnsealSpec{
 						VaultNodes: []string{"https://vault-0.vault:8200"},
-						ThresholdKeysSecretRef: platformv1alpha1.SecretRef{
+						UnsealKeysSecretRef: platformv1alpha1.SecretRef{
 							Name:      "vault-unseal-keys",
 							Namespace: "default",
 						},

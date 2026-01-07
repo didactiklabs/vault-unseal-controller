@@ -46,7 +46,7 @@ help: ## Display this help.
 .PHONY: bundle
 bundle: manifests kustomize ## Create manifests bundle.
 	cd config/default && $(KUSTOMIZE) edit set image gcr.io/didactiklabs/vault-unseal-controller=$(IMG):$(VERSION)
-	sed -i "s|gcr.io/didactiklabs/vault-unsealer:.*|gcr.io/didactiklabs/vault-unsealer:$(VERSION)|g" config/manager/unsealer_env_patch.yaml
+	sed -i 's|gcr.io/didactiklabs/vault-unsealer:.*"|gcr.io/didactiklabs/vault-unsealer:$(VERSION)"|g' config/default/unsealer_env_patch.yaml
 	$(KUSTOMIZE) build config/default > bundle.yaml
 
 ##@ Development

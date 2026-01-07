@@ -14,7 +14,7 @@ func isHiddenFile(file string) bool {
 	return file[0] == dotCharacter
 }
 
-// getVaultShards return a map with threshold keys
+// getVaultShards return a map with unseal keys
 func getVaultShards(secretPath string) (shards []string, err error) {
 	files, _ := ioutil.ReadDir(secretPath)
 	for _, file := range files {
@@ -50,7 +50,7 @@ func main() {
 		log.Fatalf("unable to initialize Vault client: %v\n", err)
 	}
 
-	// Do Unseal for each threshold key
+	// Do Unseal for each unseal key
 	shards, err := getVaultShards(os.Getenv("UNSEALER_SECRET_PATH"))
 	if err != nil {
 		log.Fatalf("unable to get unseal secret path: %v\n", err)

@@ -1,125 +1,252 @@
-# vault-unseal-controller
-// TODO(user): Add simple overview of use/purpose
+# Vault Unseal Controller
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+[![CI](https://github.com/didactiklabs/vault-unseal-controller/actions/workflows/test.yml/badge.svg)](https://github.com/didactiklabs/vault-unseal-controller/actions/workflows/test.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/didactiklabs/vault-unseal-controller)](https://goreportcard.com/report/github.com/didactiklabs/vault-unseal-controller)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## Getting Started
+A Kubernetes operator that automatically unseals HashiCorp Vault instances when they become sealed.
 
-### Prerequisites
-- go version v1.24.6+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## Overview
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+The Vault Unseal Controller monitors Vault nodes and automatically triggers unseal jobs when sealed nodes are detected. This ensures high availability of your Vault infrastructure without manual intervention.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/vault-unseal-controller:tag
+### Key Features
+
+- 🔄 **Automatic unsealing** of sealed Vault nodes
+- 🌐 **Multi-node support** for Vault clusters
+- 🔒 **Secure secret management** using Kubernetes secrets
+- 🔐 **TLS support** with custom CA certificates or skip verification
+- ⚙️ **Configurable retry logic** for failed unseal attempts
+
+## Architecture
+
+The controller creates Kubernetes Jobs in the same namespace as your unseal keys secrets, allowing proper secret mounting across namespaces while maintaining security boundaries.
+
+## Prerequisites
+
+- Kubernetes cluster v1.31+
+- kubectl v1.31+
+- Go 1.25+ (for development)
+- Docker or Podman (for building images)
+
+## Installation
+
+### Using Pre-built Bundle
+
+Download and apply the latest release bundle:
+
+```bash
+kubectl apply -f https://github.com/didactiklabs/vault-unseal-controller/releases/latest/download/bundle.yaml
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+### Building from Source
 
-**Install the CRDs into the cluster:**
+```bash
+# Build and push images
+make docker-build docker-push IMG=<your-registry>/vault-unseal-controller VERSION=<version>
+make docker-build-unsealer docker-push-unsealer UNSEALER_IMG=<your-registry>/vault-unsealer VERSION=<version>
 
-```sh
-make install
+# Deploy to cluster
+make deploy IMG=<your-registry>/vault-unseal-controller VERSION=<version>
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+## Usage
 
-```sh
-make deploy IMG=<some-registry>/vault-unseal-controller:tag
+### Creating an Unseal Resource
+
+Create a secret with your Vault unseal keys:
+
+```bash
+kubectl create secret generic vault-keys \
+  --from-literal=key1=<key-1> \
+  --from-literal=key2=<key-2> \
+  --from-literal=key3=<key-3> \
+  -n vault-namespace
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+Create an Unseal custom resource:
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
+```yaml
+apiVersion: platform.didactiklabs.io/v1alpha1
+kind: Unseal
+metadata:
+  name: vault-cluster
+spec:
+  vaultNodes:
+    - https://my-vault.example.com:8200 # Exposed Vault URL
+  unsealKeysSecretRef:
+    name: vault-keys
+    namespace: vault-namespace
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+Or you can iterate over a list of available nodes endpoints:
+```yaml
+apiVersion: platform.didactiklabs.io/v1alpha1
+kind: Unseal
+metadata:
+  name: vault-cluster
+spec:
+  vaultNodes:
+    - https://vault-0.example.com:8200
+    - https://vault-1.example.com:8200
+    - https://vault-2.example.com:8200
+  unsealKeysSecretRef:
+    name: vault-keys
+    namespace: vault-namespace
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+Apply it:
 
-```sh
-make uninstall
+```bash
+kubectl apply -f unseal.yaml
 ```
 
-**UnDeploy the controller from the cluster:**
+### With TLS Skip Verify
 
-```sh
-make undeploy
+For development or self-signed certificates:
+
+```yaml
+apiVersion: platform.didactiklabs.io/v1alpha1
+kind: Unseal
+metadata:
+  name: vault-cluster-dev
+spec:
+  vaultNodes:
+    - https://vault.example.com:8200
+  unsealKeysSecretRef:
+    name: vault-keys
+    namespace: default
+  tlsSkipVerify: true
 ```
 
-## Project Distribution
+### With Custom CA Certificate
 
-Following the options to release and provide this solution to the users.
+For production with custom CA:
 
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/vault-unseal-controller:tag
+```bash
+kubectl create secret generic vault-ca-cert \
+  --from-file=ca.crt=path/to/ca.crt \
+  -n vault-namespace # CA certificate secret must be in the same namespace as the unseal keys
 ```
 
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/vault-unseal-controller/<tag or branch>/dist/install.yaml
+```yaml
+apiVersion: platform.didactiklabs.io/v1alpha1
+kind: Unseal
+metadata:
+  name: vault-cluster-prod
+spec:
+  vaultNodes:
+    - https://vault-0.vault.svc:8200
+  unsealKeysSecretRef:
+    name: vault-keys
+    namespace: vault-namespace
+  caCertSecret: vault-ca-cert
+  retryCount: 5
 ```
 
-### By providing a Helm Chart
+## Configuration
 
-1. Build the chart using the optional helm plugin
+### Unseal Spec
 
-```sh
-kubebuilder edit --plugins=helm/v2-alpha
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vaultNodes` | `[]string` | Yes | List of Vault node URLs to monitor |
+| `unsealKeysSecretRef` | `SecretRef` | Yes | Reference to secret containing unseal keys |
+| `caCertSecret` | `string` | No | Name of secret containing CA certificate (must be in same namespace as unseal keys) |
+| `tlsSkipVerify` | `bool` | No | Skip TLS certificate verification (default: false) |
+| `retryCount` | `int32` | No | Number of retry attempts for unseal jobs (default: 3) |
+
+### Status Fields
+
+The controller maintains status information:
+
+- `vaultStatus`: Current state (UNSEALED, UNSEALING, CLEANING)
+- `sealedNodes`: List of currently sealed Vault nodes
+
+## Development
+
+### Running Tests
+
+```bash
+# Unit tests
+make test
+
+# E2E tests (requires Kind)
+make test-e2e
+
+# Lint
+make lint
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
+### Building Locally
 
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+```bash
+# Build controller binary
+make build
+
+# Build unsealer binary
+make build-unsealer
+
+# Run locally (outside cluster)
+make run
+```
+
+### Releasing
+
+Create a new git tag to trigger the release workflow:
+
+```bash
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+This will:
+- Build and publish multi-arch Docker images (amd64, arm64)
+- Create a GitHub release with GoReleaser
+- Generate and attach deployment bundle
+
+## How It Works
+
+1. **Monitoring**: The controller periodically checks the seal status of configured Vault nodes
+2. **Detection**: When sealed nodes are detected, status transitions to `UNSEALING`
+3. **Job Creation**: A Kubernetes Job is created for each sealed node in the secret's namespace
+4. **Unsealing**: The job uses unseal keys from the secret to unseal the node
+5. **Cleanup**: After successful unsealing, jobs are cleaned up and status returns to `UNSEALED`
+
+## Troubleshooting
+
+### Pods Can't Pull Images
+
+Ensure the controller deployment has `imagePullPolicy: IfNotPresent` or that images are available in your registry.
+
+### Jobs Fail to Mount Secrets
+
+Verify that:
+- The secret exists in the specified namespace
+- Jobs are created in the same namespace as the secret
+- ServiceAccount has proper RBAC permissions
+
+### Unseal Jobs Keep Failing
+
+Check:
+- Unseal keys are correct and base64-encoded
+- Vault nodes are reachable from the cluster
+- TLS configuration matches your Vault setup
+- RetryCount is sufficient for your environment
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+Contributions are welcome! Please:
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Ensure all tests pass: `make test lint`
+5. Submit a pull request
 
 ## License
 
-Copyright 2026.
+Copyright 2026 Didactik Labs.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -132,4 +259,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
