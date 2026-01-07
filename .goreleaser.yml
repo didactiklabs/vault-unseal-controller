@@ -61,7 +61,7 @@ archives:
     files:
       - LICENSE
       - README.md
-      - deploy/bundle.yaml
+      - bundle.yaml
 
 checksum:
   name_template: 'checksums.txt'

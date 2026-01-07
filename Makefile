@@ -1,6 +1,7 @@
 # Image URL to use all building/pushing image targets
-IMG ?= gcr.io/didactiklabs/vault-unseal-controller:v1.0.0
-UNSEALER_IMG ?= gcr.io/didactiklabs/vault-unsealer:v1.0.0
+IMG ?= gcr.io/didactiklabs/vault-unseal-controller
+UNSEALER_IMG ?= gcr.io/didactiklabs/vault-unsealer
+VERSION ?= latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -44,8 +45,9 @@ help: ## Display this help.
 
 .PHONY: bundle
 bundle: manifests kustomize ## Create manifests bundle.
-	cd config/default && $(KUSTOMIZE) edit set image gcr.io/didactiklabs/vault-unseal-controller=$(IMG)
-	$(KUSTOMIZE) build config/default > deploy/bundle.yaml
+	cd config/default && $(KUSTOMIZE) edit set image gcr.io/didactiklabs/vault-unseal-controller=$(IMG):$(VERSION)
+	sed -i "s|gcr.io/didactiklabs/vault-unsealer:.*|gcr.io/didactiklabs/vault-unsealer:$(VERSION)|g" config/manager/unsealer_env_patch.yaml
+	$(KUSTOMIZE) build config/default > bundle.yaml
 
 ##@ Development
 
@@ -122,11 +124,11 @@ build-unsealer: ## Build vault-unsealer binary.
 
 .PHONY: docker-build-unsealer
 docker-build-unsealer: ## Build docker image for vault-unsealer.
-	$(CONTAINER_TOOL) build -t ${UNSEALER_IMG} ./vault-unsealer
+	$(CONTAINER_TOOL) build -t $(UNSEALER_IMG):$(VERSION) ./vault-unsealer
 
 .PHONY: docker-push-unsealer
 docker-push-unsealer: ## Push docker image for vault-unsealer.
-	$(CONTAINER_TOOL) push ${UNSEALER_IMG}
+	$(CONTAINER_TOOL) push $(UNSEALER_IMG):$(VERSION)
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -137,11 +139,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build -t $(IMG):$(VERSION) .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}
+	$(CONTAINER_TOOL) push $(IMG):$(VERSION)
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -156,14 +158,14 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name vault-unseal-controller-builder
 	$(CONTAINER_TOOL) buildx use vault-unseal-controller-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag $(IMG):$(VERSION) -f Dockerfile.cross .
 	- $(CONTAINER_TOOL) buildx rm vault-unseal-controller-builder
 	rm Dockerfile.cross
 
 .PHONY: build-installer
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
-	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=$(IMG):$(VERSION)
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
 
 ##@ Deployment
@@ -184,7 +186,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && "$(KUSTOMIZE)" edit set image controller=${IMG}
+	cd config/manager && "$(KUSTOMIZE)" edit set image controller=$(IMG):$(VERSION)
 	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" apply -f -
 
 .PHONY: undeploy

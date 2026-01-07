@@ -1,3 +1,5 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 # Adds namespace to all resources.
 namespace: vault-unseal-controller-system
 
@@ -40,12 +42,3 @@ patches:
 - path: manager_metrics_patch.yaml
   target:
     kind: Deployment
-- path: unsealer_env_patch.yaml
-  target:
-    kind: Deployment
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-images:
-- name: gcr.io/didactiklabs/vault-unseal-controller
-  newName: gcr.io/didactiklabs/vault-unseal-controller
-  newTag: v1.0.0

@@ -36,20 +36,25 @@ import (
 	"github.com/didactiklabs/vault-unseal-controller/pkg/vault"
 )
 
+const (
+	keysPath = "/secrets/keys"
+)
+
 // UnsealReconciler reconciles a Unseal object
 type UnsealReconciler struct {
 	client.Client
-	log           logr.Logger
-	Scheme        *runtime.Scheme
+	log    logr.Logger
+	Scheme *runtime.Scheme
+	// UnsealerImage holds the container image used for unsealing jobs, configured via the UNSEALER_IMAGE environment variable via kustomize.
 	UnsealerImage string
 }
 
 // +kubebuilder:rbac:groups=platform.didactiklabs.io,resources=unseals,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=platform.didactiklabs.io,resources=unseals/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=platform.didactiklabs.io,resources=unseals/finalizers,verbs=update
-//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -300,8 +305,6 @@ func (r *UnsealReconciler) createJob(
 	jobName string,
 	nodeName string,
 ) *batchv1.Job {
-	keysPath := "/secrets/keys"
-
 	// Job Metadata
 	jobMeta := metav1.ObjectMeta{
 		Name:      jobName,

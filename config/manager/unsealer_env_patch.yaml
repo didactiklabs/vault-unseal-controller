@@ -14,4 +14,4 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: UNSEALER_IMAGE
-          value: "gcr.io/didactiklabs/vault-unsealer:latest"
+          value: "gcr.io/didactiklabs/vault-unsealer:VERSION"

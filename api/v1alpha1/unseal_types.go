@@ -48,13 +48,13 @@ type UnsealSpec struct {
 	// +kubebuilder:validation:Required
 	ThresholdKeysSecretRef SecretRef `json:"thresholdKeysSecretRef"`
 	// Reference to secret containing CA certificate for validating requests against vault instances (need to be in the same namespace as the threshold keys secret)
-	//+optional
+	// +optional
 	CaCertSecret string `json:"caCertSecret,omitempty"`
 	// Boolean to define if you want to skip tls certificate validation. Set true of false (default is false)
-	//+kubebuilder:default:=false
+	// +kubebuilder:default:=false
 	TlsSkipVerify bool `json:"tlsSkipVerify,omitempty"`
 	// Number of retry, default is 3
-	//+kubebuilder:default:=3
+	// +kubebuilder:default:=3
 	RetryCount int32 `json:"retryCount,omitempty"`
 }
 
@@ -68,10 +68,10 @@ type UnsealStatus struct {
 	Conditions  []metav1.Condition `json:"conditions,omitempty"`
 }
 
-//+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name=Age,type=date
-//+kubebuilder:printcolumn:JSONPath=".status.vaultStatus",name=Vault Status,type=string
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name=Age,type=date
+// +kubebuilder:printcolumn:JSONPath=".status.vaultStatus",name=Vault Status,type=string
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 
 // Unseal is the Schema for the unseals API

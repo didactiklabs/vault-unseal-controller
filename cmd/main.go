@@ -181,7 +181,11 @@ func main() {
 	// Get unsealer image from env var (required)
 	unsealerImage := os.Getenv("UNSEALER_IMAGE")
 	if unsealerImage == "" {
-		setupLog.Error(nil, "UNSEALER_IMAGE environment variable is required")
+		setupLog.Error(
+			nil,
+			"UNSEALER_IMAGE environment variable is required",
+			"hint", "configure it in the controller deployment manifest or in unsealer_env_patch.yaml",
+		)
 		os.Exit(1)
 	}
 
