@@ -46,9 +46,6 @@ patches:
   target:
     kind: Deployment
 images:
-- name: controller
+- name: manager
   newName: gcr.io/didactiklabs/vault-unseal-controller
-  newTag: latest
-- name: gcr.io/didactiklabs/vault-unseal-controller
-  newName: gcr.io/didactiklabs/vault-unseal-controller
-  newTag: latest
+  newTag: v0.1.2

@@ -24,6 +24,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +39,27 @@ import (
 
 const (
 	keysPath = "/secrets/keys"
+
+	// Condition types
+	TypeReady            = "Ready"
+	TypeVaultUnsealed    = "VaultUnsealed"
+	TypeUnsealJobCreated = "UnsealJobCreated"
+	TypeSecretAvailable  = "SecretAvailable"
+	TypeCACertAvailable  = "CACertAvailable"
+	TypeVaultReachable   = "VaultReachable"
+
+	// Condition reasons
+	ReasonUnsealSuccessful = "UnsealSuccessful"
+	ReasonUnsealFailed     = "UnsealFailed"
+	ReasonVaultSealed      = "VaultSealed"
+	ReasonJobCreated       = "JobCreated"
+	ReasonJobFailed        = "JobFailed"
+	ReasonSecretNotFound   = "SecretNotFound"
+	ReasonSecretFound      = "SecretFound"
+	ReasonCACertNotFound   = "CACertNotFound"
+	ReasonCACertFound      = "CACertFound"
+	ReasonVaultUnreachable = "VaultUnreachable"
+	ReasonVaultReachable   = "VaultReachable"
 )
 
 // UnsealReconciler reconciles a Unseal object
@@ -142,9 +164,20 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		err := r.Get(ctx, sName, &secret)
 		if err != nil {
 			r.log.Error(err, "Failed to get CA certificate secret")
+			r.setCondition(
+				unseal,
+				TypeCACertAvailable,
+				metav1.ConditionFalse,
+				ReasonCACertNotFound,
+				"CA certificate secret not found: "+err.Error(),
+			)
+			if updateErr := r.Status().Update(ctx, unseal); updateErr != nil {
+				r.log.Error(updateErr, "Failed to update status")
+			}
 			return ctrl.Result{}, err
 		}
 		caCert = string(secret.Data["ca.crt"])
+		r.setCondition(unseal, TypeCACertAvailable, metav1.ConditionTrue, ReasonCACertFound, "CA certificate secret is available")
 	}
 
 	// Switch implementing vault state logic
@@ -156,16 +189,46 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			unseal.Status.SealedNodes, err = vault.GetVaultStatus(vault.VSParams{VaultNodes: unseal.Spec.VaultNodes, Insecure: true})
 			if err != nil {
 				r.log.Error(err, "Vault Status error")
+				r.setCondition(
+					unseal,
+					TypeVaultReachable,
+					metav1.ConditionFalse,
+					ReasonVaultUnreachable,
+					"Failed to reach Vault: "+err.Error(),
+				)
+				r.setCondition(unseal, TypeReady, metav1.ConditionFalse, ReasonVaultUnreachable, "Vault is unreachable")
+				if updateErr := r.Status().Update(ctx, unseal); updateErr != nil {
+					r.log.Error(updateErr, "Failed to update status")
+				}
+				return ctrl.Result{RequeueAfter: requeueTime}, nil
+			} else {
+				r.setCondition(unseal, TypeVaultReachable, metav1.ConditionTrue, ReasonVaultReachable, "Vault is reachable")
 			}
 		} else {
 			unseal.Status.SealedNodes, err = vault.GetVaultStatus(vault.VSParams{VaultNodes: unseal.Spec.VaultNodes, Insecure: false, CaCert: caCert})
 			if err != nil {
 				r.log.Error(err, "Vault Status error")
+				r.setCondition(unseal, TypeVaultReachable, metav1.ConditionFalse, ReasonVaultUnreachable, "Failed to reach Vault: "+err.Error())
+				r.setCondition(unseal, TypeReady, metav1.ConditionFalse, ReasonVaultUnreachable, "Vault is unreachable")
+				if updateErr := r.Status().Update(ctx, unseal); updateErr != nil {
+					r.log.Error(updateErr, "Failed to update status")
+				}
+				return ctrl.Result{RequeueAfter: requeueTime}, nil
+			} else {
+				r.setCondition(unseal, TypeVaultReachable, metav1.ConditionTrue, ReasonVaultReachable, "Vault is reachable")
 			}
 		}
 		if len(unseal.Status.SealedNodes) > 0 {
 			// Set VaultStatus to unsealing and update the status of resources in the cluster
 			unseal.Status.VaultStatus = platformv1alpha1.StatusUnsealing
+			r.setCondition(unseal, TypeReady, metav1.ConditionFalse, ReasonVaultSealed, "One or more Vault nodes are sealed")
+			r.setCondition(
+				unseal,
+				TypeVaultUnsealed,
+				metav1.ConditionFalse,
+				ReasonVaultSealed,
+				"Vault nodes are sealed and unsealing is in progress",
+			)
 			err := r.Status().Update(context.TODO(), unseal)
 			if err != nil {
 				r.log.Error(err, "failed to update unseal status")
@@ -174,7 +237,9 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				return ctrl.Result{RequeueAfter: requeueTime}, nil
 			}
 		} else {
-			// Set VaultStatus to unseal and update the status of resources in the cluster
+			// Set VaultStatus to unsealed and update the status of resources in the cluster
+			r.setCondition(unseal, TypeReady, metav1.ConditionTrue, ReasonUnsealSuccessful, "All Vault nodes are unsealed and healthy")
+			r.setCondition(unseal, TypeVaultUnsealed, metav1.ConditionTrue, ReasonUnsealSuccessful, "All Vault nodes are unsealed")
 			err := r.Status().Update(context.TODO(), unseal)
 			if err != nil {
 				r.log.Error(err, "failed to update unseal status")
@@ -210,8 +275,19 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				err = r.Create(ctx, job)
 				if err != nil {
 					r.log.Error(err, "Failed to create new Job", "Job Namespace", job.Namespace, "Job Name", jobName)
+					r.setCondition(
+						unseal,
+						TypeUnsealJobCreated,
+						metav1.ConditionFalse,
+						ReasonJobFailed,
+						"Failed to create unseal job: "+err.Error(),
+					)
+					if updateErr := r.Status().Update(ctx, unseal); updateErr != nil {
+						r.log.Error(updateErr, "Failed to update status")
+					}
 					return ctrl.Result{}, err
 				}
+				r.setCondition(unseal, TypeUnsealJobCreated, metav1.ConditionTrue, ReasonJobCreated, "Unseal job created successfully")
 				// Job created successfully - return and requeue
 				return ctrl.Result{RequeueAfter: requeueTime}, nil
 			} else if err != nil {
@@ -230,23 +306,26 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			if succeeded == 1 {
 				r.log.Info("Job Succeeded", "Node Name", nodeName, "Job Name", jobName)
 				unseal.Status.VaultStatus = platformv1alpha1.StatusCleaning
+				r.setCondition(unseal, TypeUnsealJobCreated, metav1.ConditionTrue, ReasonJobCreated, "Unseal job completed successfully")
 				err := r.Status().Update(context.TODO(), unseal)
 				if err != nil {
 					r.log.Error(err, "failed to update unseal status")
 					return ctrl.Result{}, err
 				} else {
-					return ctrl.Result{RequeueAfter: requeueTime}, nil
+					return ctrl.Result{Requeue: true}, nil
 				}
 			} else if failed == 1 {
 				r.log.Info("Job Failed, please check your configuration", "Node Name", nodeName, "Job Name", jobName, "Backoff Limit", unseal.Spec.RetryCount)
 				// Set VaultStatus to cleaning and update the status of resources in the cluster
 				unseal.Status.VaultStatus = platformv1alpha1.StatusCleaning
+				r.setCondition(unseal, TypeUnsealJobCreated, metav1.ConditionFalse, ReasonJobFailed, "Unseal job failed after retries")
+				r.setCondition(unseal, TypeReady, metav1.ConditionFalse, ReasonJobFailed, "Unseal job failed")
 				err := r.Status().Update(context.TODO(), unseal)
 				if err != nil {
 					r.log.Error(err, "failed to update unseal status")
 					return ctrl.Result{}, err
 				} else {
-					return ctrl.Result{RequeueAfter: requeueTime}, nil
+					return ctrl.Result{Requeue: true}, nil
 				}
 			}
 		}
@@ -265,14 +344,14 @@ func (r *UnsealReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 					return ctrl.Result{}, err
 				} else {
 					r.log.Info("Old job removed", "Job Name", jobName)
-					// Set VaultStatus to cleaning and update the status of resources in the cluster
+					// Set VaultStatus to unsealed and update the status of resources in the cluster
 					unseal.Status.VaultStatus = platformv1alpha1.StatusUnsealed
 					err := r.Status().Update(context.TODO(), unseal)
 					if err != nil {
 						r.log.Error(err, "failed to update unseal status")
 						return ctrl.Result{}, err
 					} else {
-						return ctrl.Result{RequeueAfter: requeueTime}, nil
+						return ctrl.Result{Requeue: true}, nil
 					}
 				}
 			}
@@ -435,4 +514,20 @@ func (r *UnsealReconciler) createJob(
 		ObjectMeta: jobMeta,
 		Spec:       jobSpec,
 	}
+}
+
+// setCondition updates or adds a condition to the Unseal status
+func (r *UnsealReconciler) setCondition(
+	unseal *platformv1alpha1.Unseal,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string,
+) {
+	meta.SetStatusCondition(&unseal.Status.Conditions, metav1.Condition{
+		Type:               conditionType,
+		Status:             status,
+		ObservedGeneration: unseal.Generation,
+		Reason:             reason,
+		Message:            message,
+	})
 }

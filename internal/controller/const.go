@@ -3,7 +3,7 @@ package controller
 import "time"
 
 const (
-	requeueTime     = 60 * time.Second
+	requeueTime     = 5 * time.Second
 	domainName      = ".didactiklabs.io"
 	unsealFinalizer = "unseal" + domainName
 )

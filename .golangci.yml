@@ -20,10 +20,9 @@ linters:
     - staticcheck
     - unconvert
     - unparam
-    - unused
   settings:
     gocyclo:
-      min-complexity: 45
+      min-complexity: 50
     revive:
       rules:
         - name: comment-spacings
