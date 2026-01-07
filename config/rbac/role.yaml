@@ -2,9 +2,17 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: manager-role
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - batch
   resources:
@@ -18,23 +26,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - unsealer.amoyel.fr
+  - platform.didactiklabs.io
   resources:
   - unseals
   verbs:
@@ -46,13 +38,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - unsealer.amoyel.fr
+  - platform.didactiklabs.io
   resources:
   - unseals/finalizers
   verbs:
   - update
 - apiGroups:
-  - unsealer.amoyel.fr
+  - platform.didactiklabs.io
   resources:
   - unseals/status
   verbs:

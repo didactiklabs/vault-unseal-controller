@@ -1,0 +1,6 @@
+## Append samples of your project ##
+resources:
+  - cacertificate.yaml
+  - thresholdkeys.yaml
+  - platform_v1alpha1_unseal.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

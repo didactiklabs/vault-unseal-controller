@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: thresholdkeys
-  namespace: vault-unsealer-operator-system
+  namespace: vault-unseal-controller-system
 type: Opaque
 stringData:
   key1: mykey1

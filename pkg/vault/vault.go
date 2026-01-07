@@ -23,7 +23,9 @@ func GetVaultStatus(p VSParams) (sealedNodes []string, err error) {
 	for _, node := range p.VaultNodes {
 		if p.Insecure {
 			config := &api.Config{Address: node}
-			config.ConfigureTLS(&api.TLSConfig{Insecure: true})
+			if err := config.ConfigureTLS(&api.TLSConfig{Insecure: true}); err != nil {
+				return nil, fmt.Errorf("unable to configure TLS: %v", err)
+			}
 			client, err = api.NewClient(config)
 			if err != nil {
 				return nil, fmt.Errorf("unable to initialize Vault tls client: %v", err)
@@ -35,7 +37,9 @@ func GetVaultStatus(p VSParams) (sealedNodes []string, err error) {
 			}
 		} else {
 			config := &api.Config{Address: node}
-			config.ConfigureTLS(&api.TLSConfig{CACertBytes: []byte(p.CaCert)})
+			if err := config.ConfigureTLS(&api.TLSConfig{CACertBytes: []byte(p.CaCert)}); err != nil {
+				return nil, fmt.Errorf("unable to configure TLS: %v", err)
+			}
 			client, err = api.NewClient(config)
 			if err != nil {
 				return nil, fmt.Errorf("unable to initialize Vault tls client: %v", err)

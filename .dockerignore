@@ -1,4 +1,34 @@
 # More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
-# Ignore build and test binaries.
+# Ignore build artifacts and temporary files
 bin/
-testbin/
+dist/
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+.devcontainer/
+.direnv/
+.envrc
+
+# Ignore Git
+.git/
+.github/
+
+# Ignore test files
+**/*_test.go
+cover.out
+test/
+
+# Ignore documentation
+*.md
+!README.md
+
+# Ignore deployment files (not needed in image)
+deploy/
+config/samples/
+
+# Ignore nix files
+shell.nix
+*.nix

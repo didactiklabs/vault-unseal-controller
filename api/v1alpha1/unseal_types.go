@@ -1,5 +1,5 @@
 /*
-Copyright 2022.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// Unsealed: vault is unsealed, everything is ok -> check periodicaly if vault is unseal or not
+	// Unsealed: vault is unsealed, everything is ok -> check periodically if vault is unseal or not
 	StatusUnsealed = "UNSEALED"
 	// Changing: vault is in seal state -> launch unseal process
 	StatusUnsealing = "UNSEALING"
@@ -29,22 +29,26 @@ const (
 	StatusCleaning = "CLEANING"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// SecretRef contains information to locate a secret
+type SecretRef struct {
+	// Name of the secret
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// Namespace of the secret
+	// +kubebuilder:validation:Required
+	Namespace string `json:"namespace"`
+}
 
 // UnsealSpec defines the desired state of Unseal
 type UnsealSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// An array of vault instances to call api endpoints for unseal, example for one instance: https://myvault01.domain.local:8200
-	//+kubebuilder:validation:Required
+	// +kubebuilder:validation:Required
 	VaultNodes []string `json:"vaultNodes"`
-	// Secret name of your threshold keys. Threshold keys is unseal keys required to unseal you vault instance(s)
-	// You need to create a secret with different key names for each unseal keys
-	//+kubebuilder:validation:Required
-	ThresholdKeysSecret string `json:"thresholdKeysSecret"`
-	// Secret name of your CA certificate. Important to request vault with tls on a pki
+	// Reference to secret containing threshold keys. Threshold keys are unseal keys required to unseal your vault instance(s)
+	// +kubebuilder:validation:Required
+	ThresholdKeysSecretRef SecretRef `json:"thresholdKeysSecretRef"`
+	// Reference to secret containing CA certificate for validating requests against vault instances (need to be in the same namespace as the threshold keys secret)
+	//+optional
 	CaCertSecret string `json:"caCertSecret,omitempty"`
 	// Boolean to define if you want to skip tls certificate validation. Set true of false (default is false)
 	//+kubebuilder:default:=false
@@ -54,36 +58,45 @@ type UnsealSpec struct {
 	RetryCount int32 `json:"retryCount,omitempty"`
 }
 
-// UnsealStatus defines the observed state of Unseal
+// UnsealStatus defines the observed state of Unseal.
 type UnsealStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 
 	// Status of the vault
 	VaultStatus string `json:"vaultStatus,omitempty"`
 	// Sealed nodes
-	SealedNodes []string `json:"sealedNodes,omitempty"`
+	SealedNodes []string           `json:"sealedNodes,omitempty"`
+	Conditions  []metav1.Condition `json:"conditions,omitempty"`
 }
 
+//+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name=Age,type=date
 //+kubebuilder:printcolumn:JSONPath=".status.vaultStatus",name=Vault Status,type=string
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 
 // Unseal is the Schema for the unseals API
 type Unseal struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	Spec   UnsealSpec   `json:"spec,omitempty"`
-	Status UnsealStatus `json:"status,omitempty"`
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of Unseal
+	// +required
+	Spec UnsealSpec `json:"spec"`
+
+	// status defines the observed state of Unseal
+	// +optional
+	Status UnsealStatus `json:"status,omitzero"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // UnsealList contains a list of Unseal
 type UnsealList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 	Items           []Unseal `json:"items"`
 }
 
