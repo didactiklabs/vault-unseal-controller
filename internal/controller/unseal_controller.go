@@ -38,6 +38,27 @@ import (
 
 const (
 	keysPath = "/secrets/keys"
+
+	// Condition types
+	TypeReady            = "Ready"
+	TypeVaultUnsealed    = "VaultUnsealed"
+	TypeUnsealJobCreated = "UnsealJobCreated"
+	TypeSecretAvailable  = "SecretAvailable"
+	TypeCACertAvailable  = "CACertAvailable"
+	TypeVaultReachable   = "VaultReachable"
+
+	// Condition reasons
+	ReasonUnsealSuccessful = "UnsealSuccessful"
+	ReasonUnsealFailed     = "UnsealFailed"
+	ReasonVaultSealed      = "VaultSealed"
+	ReasonJobCreated       = "JobCreated"
+	ReasonJobFailed        = "JobFailed"
+	ReasonSecretNotFound   = "SecretNotFound"
+	ReasonSecretFound      = "SecretFound"
+	ReasonCACertNotFound   = "CACertNotFound"
+	ReasonCACertFound      = "CACertFound"
+	ReasonVaultUnreachable = "VaultUnreachable"
+	ReasonVaultReachable   = "VaultReachable"
 )
 
 // UnsealReconciler reconciles a Unseal object
@@ -434,5 +455,57 @@ func (r *UnsealReconciler) createJob(
 	return &batchv1.Job{
 		ObjectMeta: jobMeta,
 		Spec:       jobSpec,
+	}
+}
+
+// setCondition updates or adds a condition to the Unseal status
+func (r *UnsealReconciler) setCondition(
+	unseal *platformv1alpha1.Unseal,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string,
+) {
+	condition := metav1.Condition{
+		Type:               conditionType,
+		Status:             status,
+		ObservedGeneration: unseal.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	}
+
+	// Find and update existing condition or append new one
+	found := false
+	for i, existingCondition := range unseal.Status.Conditions {
+		if existingCondition.Type == conditionType {
+			// Only update if status changed
+			if existingCondition.Status != status || existingCondition.Reason != reason {
+				unseal.Status.Conditions[i] = condition
+			} else {
+				// Keep the original LastTransitionTime if status didn't change
+				condition.LastTransitionTime = existingCondition.LastTransitionTime
+				unseal.Status.Conditions[i] = condition
+			}
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		unseal.Status.Conditions = append(unseal.Status.Conditions, condition)
+	}
+}
+
+// updateReadyCondition sets the overall Ready condition based on other conditions
+func (r *UnsealReconciler) updateReadyCondition(unseal *platformv1alpha1.Unseal) {
+	// Check if all vault nodes are unsealed
+	allUnsealed := len(unseal.Status.SealedNodes) == 0
+
+	if allUnsealed {
+		r.setCondition(unseal, TypeReady, metav1.ConditionTrue, ReasonUnsealSuccessful, "All Vault nodes are unsealed and healthy")
+		r.setCondition(unseal, TypeVaultUnsealed, metav1.ConditionTrue, ReasonUnsealSuccessful, "All Vault nodes are unsealed")
+	} else {
+		r.setCondition(unseal, TypeReady, metav1.ConditionFalse, ReasonVaultSealed, "One or more Vault nodes are sealed")
+		r.setCondition(unseal, TypeVaultUnsealed, metav1.ConditionFalse, ReasonVaultSealed, "Vault nodes are sealed and unsealing is in progress")
 	}
 }

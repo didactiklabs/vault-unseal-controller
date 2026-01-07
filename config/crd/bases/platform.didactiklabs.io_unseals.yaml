@@ -21,6 +21,9 @@ spec:
     - jsonPath: .status.vaultStatus
       name: Vault Status
       type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
