@@ -1,139 +1,135 @@
-# vault-unsealer-operator
+# vault-unseal-controller
+// TODO(user): Add simple overview of use/purpose
 
-<!-- TABLE OF CONTENTS -->
-<details open>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#purpose">Purpose</a></li>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#Contribute">Contribute</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-  </ol>
-</details>
-</br>
+## Description
+// TODO(user): An in-depth paragraph about your project and overview of use
 
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-### Purpose
-This kubernetes operator allows you to automate unseal process of your HashiCorp Vault clusters or instances with a sample file and secret.
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
-### Built With
-* [Kubebuilder](https://book.kubebuilder.io/)
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
-<!-- GETTING STARTED -->
 ## Getting Started
 
 ### Prerequisites
-You need to have :
-* An operationnal Kubernetes cluster
-* HashiCorp Vault cluster or instance
-* kubectl binary
+- go version v1.24.6+
+- docker version 17.03+.
+- kubectl version v1.11.3+.
+- Access to a Kubernetes v1.11.3+ cluster.
 
-### Installation
-1. Deploy the latest operator release via the 'bundle' file :
-   ```sh
-   kubectl apply -f https://raw.githubusercontent.com/aamoyel/vault-unsealer-operator/main/deploy/bundle.yml
-   ```
+### To Deploy on the cluster
+**Build and push your image to the location specified by `IMG`:**
 
-<p align="right">(<a href="#top">back to top</a>)</p>
+```sh
+make docker-build docker-push IMG=<some-registry>/vault-unseal-controller:tag
+```
 
+**NOTE:** This image ought to be published in the personal registry you specified.
+And it is required to have access to pull the image from the working environment.
+Make sure you have the proper permission to the registry if the above commands don’t work.
 
+**Install the CRDs into the cluster:**
 
-<!-- USAGE EXAMPLES -->
-## Usage
-1. First you need to create your secret with your threshold unseal keys. You can find an example at [this link](https://github.com/aamoyel/vault-unsealer-operator/blob/main/config/samples/thresholdKeys.yml) . Here you can find an example:
-   ```yaml
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: thresholdkeys
-    type: Opaque
-    stringData:
-      key1: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      key2: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
-   Apply this file with `kubectl`
-2. (Optionnal) If you have your own PKI and CA certificate, you can create a secret (example file [here](https://github.com/aamoyel/vault-unsealer-operator/blob/main/config/samples/cacertificate.yml)) like that:
-   ```yaml
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: cacertificate
-    type: Opaque
-    stringData:
-      ca.crt: |
-        -----BEGIN CERTIFICATE-----
-        .....................................
-        -----END CERTIFICATE-----
-   ```
-   Apply this file with `kubectl`
-3. Now you can create your config file and custom fields:
-   ```yaml
-    apiVersion: unsealer.amoyel.fr/v1alpha1
-    kind: Unseal
-    metadata:
-      name: unseal-sample
-    spec:
-      vaultNodes:
-        - https://vault-cluster-node-url-1:8200
-        - https://vault-cluster-node-url-2:8200
-        - https://vault-cluster-node-url-3:8200
-      thresholdKeysSecret: thresholdkeys
-      # Optional, but important if you have internal pki for your vault certificate. Secret need to be in the same namespace as this resource
-      caCertSecret: cacertificate
-      # Optional, set this parameter to true if you want to skip tls certificate verification
-      tlsSkipVerify: false
-      # Optional
-      retryCount: 3
-   ```
-   Apply this file with `kubectl`
+```sh
+make install
+```
 
-<p align="right">(<a href="#top">back to top</a>)</p>
+**Deploy the Manager to the cluster with the image specified by `IMG`:**
 
+```sh
+make deploy IMG=<some-registry>/vault-unseal-controller:tag
+```
 
-<!-- Contribute -->
-## Contribute
-You can create issues on this project if you have any problems or suggestions.
+> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
+privileges or be logged in as admin.
 
-<p align="right">(<a href="#top">back to top</a>)</p>
+**Create instances of your solution**
+You can apply the samples (examples) from the config/sample:
 
-<!-- LICENSE -->
+```sh
+kubectl apply -k config/samples/
+```
+
+>**NOTE**: Ensure that the samples has default values to test it out.
+
+### To Uninstall
+**Delete the instances (CRs) from the cluster:**
+
+```sh
+kubectl delete -k config/samples/
+```
+
+**Delete the APIs(CRDs) from the cluster:**
+
+```sh
+make uninstall
+```
+
+**UnDeploy the controller from the cluster:**
+
+```sh
+make undeploy
+```
+
+## Project Distribution
+
+Following the options to release and provide this solution to the users.
+
+### By providing a bundle with all YAML files
+
+1. Build the installer for the image built and published in the registry:
+
+```sh
+make build-installer IMG=<some-registry>/vault-unseal-controller:tag
+```
+
+**NOTE:** The makefile target mentioned above generates an 'install.yaml'
+file in the dist directory. This file contains all the resources built
+with Kustomize, which are necessary to install this project without its
+dependencies.
+
+2. Using the installer
+
+Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
+the project, i.e.:
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/<org>/vault-unseal-controller/<tag or branch>/dist/install.yaml
+```
+
+### By providing a Helm Chart
+
+1. Build the chart using the optional helm plugin
+
+```sh
+kubebuilder edit --plugins=helm/v2-alpha
+```
+
+2. See that a chart was generated under 'dist/chart', and users
+can obtain this solution from there.
+
+**NOTE:** If you change the project, you need to update the Helm Chart
+using the same command above to sync the latest changes. Furthermore,
+if you create webhooks, you need to use the above command with
+the '--force' flag and manually ensure that any custom configuration
+previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
+is manually re-applied afterwards.
+
+## Contributing
+// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+**NOTE:** Run `make help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
 ## License
 
-Distributed under the Apache-2.0 license. See `LICENSE.txt` for more information.
+Copyright 2026.
 
-<p align="right">(<a href="#top">back to top</a>)</p>
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
+    http://www.apache.org/licenses/LICENSE-2.0
 
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
-<!-- CONTACT -->
-## Contact
-
-Alan Amoyel - [@AlanAmoyel](https://twitter.com/AlanAmoyel)
-
-Project Link: [https://github.com/aamoyel/vault-unsealer-operator](https://github.com/aamoyel/vault-unsealer-operator)
-
-<p align="right">(<a href="#top">back to top</a>)</p>

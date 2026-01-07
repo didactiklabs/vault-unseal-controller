@@ -1,0 +1,122 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: vault-unseal-controller
+    main: ./cmd/main.go
+    binary: vault-unseal-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+  - id: vault-unsealer
+    main: ./vault-unsealer/main.go
+    binary: vault-unsealer
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: vault-unseal-controller
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    builds:
+      - vault-unseal-controller
+      - vault-unsealer
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - deploy/bundle.yaml
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Documentation'
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Dependency Updates'
+      regexp: "^.*build\\(deps\\):+.*$"
+      order: 3
+    - title: 'Other'
+      order: 999
+
+release:
+  github:
+    owner: didactiklabs
+    name: vault-unseal-controller
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## Vault Unseal Controller {{.Tag}}
+
+    ### Installation
+
+    ```bash
+    kubectl apply -f https://github.com/didactiklabs/vault-unseal-controller/releases/download/{{.Tag}}/bundle.yaml
+    ```
+
+    ### Container Images
+
+    - Controller: `gcr.io/didactiklabs/vault-unseal-controller:{{.Tag}}`
+    - Unsealer: `gcr.io/didactiklabs/vault-unsealer:{{.Tag}}`
+  footer: |
+    **Full Changelog**: https://github.com/didactiklabs/vault-unseal-controller/compare/{{ .PreviousTag }}...{{ .Tag }}
