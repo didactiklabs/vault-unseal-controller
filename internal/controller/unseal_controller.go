@@ -423,6 +423,14 @@ func (r *UnsealReconciler) createJob(
 		},
 	}
 
+	// Add keyPrefix if specified
+	if unseal.Spec.UnsealKeysSecretRef.KeyPrefix != "" {
+		podEnv = append(podEnv, corev1.EnvVar{
+			Name:  "UNSEALER_KEY_PREFIX",
+			Value: unseal.Spec.UnsealKeysSecretRef.KeyPrefix,
+		})
+	}
+
 	// Condition for insecure mode or CA Cert usage
 	if unseal.Spec.TlsSkipVerify {
 		podEnv = []corev1.EnvVar{
@@ -439,6 +447,12 @@ func (r *UnsealReconciler) createJob(
 				Value: "true",
 			},
 		}
+		if unseal.Spec.UnsealKeysSecretRef.KeyPrefix != "" {
+			podEnv = append(podEnv, corev1.EnvVar{
+				Name:  "UNSEALER_KEY_PREFIX",
+				Value: unseal.Spec.UnsealKeysSecretRef.KeyPrefix,
+			})
+		}
 	} else if unseal.Spec.CaCertSecret != "" {
 		podEnv = []corev1.EnvVar{
 			{
@@ -453,6 +467,12 @@ func (r *UnsealReconciler) createJob(
 				Name:  "VAULT_CAPATH",
 				Value: "/secrets/cacerts/ca.crt",
 			},
+		}
+		if unseal.Spec.UnsealKeysSecretRef.KeyPrefix != "" {
+			podEnv = append(podEnv, corev1.EnvVar{
+				Name:  "UNSEALER_KEY_PREFIX",
+				Value: unseal.Spec.UnsealKeysSecretRef.KeyPrefix,
+			})
 		}
 
 		podMounts = []corev1.VolumeMount{
