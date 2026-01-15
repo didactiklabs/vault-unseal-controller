@@ -64,6 +64,8 @@ kubectl create secret generic vault-keys \
   -n vault-namespace
 ```
 
+> **Note**: You can optionally use key prefixes to organize multiple sets of unseal keys in the same secret. See the [Key Prefix Filtering](#key-prefix-filtering) section below.
+
 Create an Unseal custom resource:
 
 ```yaml
@@ -144,6 +146,44 @@ spec:
   retryCount: 5
 ```
 
+### Key Prefix Filtering
+
+You can use the optional `keyPrefix` field to filter which keys from the secret should be used as unseal keys. This is useful when:
+- You store multiple sets of keys in the same secret
+- You want to organize keys with a naming convention
+- You need to differentiate between different Vault clusters
+
+When using `keyPrefix`, keys in the secret must be named following the pattern: `<keyPrefix>0`, `<keyPrefix>1`, `<keyPrefix>2`, etc.
+
+Example with key prefix:
+
+```bash
+# Create a secret with prefixed keys
+kubectl create secret generic vault-keys \
+  --from-literal=vault-unseal-0=<key-1> \
+  --from-literal=vault-unseal-1=<key-2> \
+  --from-literal=vault-unseal-2=<key-3> \
+  --from-literal=other-key=<other-data> \
+  -n vault-namespace
+```
+
+```yaml
+apiVersion: platform.didactiklabs.io/v1alpha1
+kind: Unseal
+metadata:
+  name: vault-cluster-filtered
+spec:
+  vaultNodes:
+    - https://vault.example.com:8200
+  unsealKeysSecretRef:
+    name: vault-keys
+    namespace: vault-namespace
+    keyPrefix: vault-unseal-  # Only keys starting with "vault-unseal-" will be used
+  caCertSecret: vault-ca-cert
+```
+
+In this example, only `vault-unseal-0`, `vault-unseal-1`, and `vault-unseal-2` will be used for unsealing. The `other-key` entry will be ignored.
+
 ## Configuration
 
 ### Unseal Spec
@@ -152,6 +192,9 @@ spec:
 |-------|------|----------|-------------|
 | `vaultNodes` | `[]string` | Yes | List of Vault node URLs to monitor |
 | `unsealKeysSecretRef` | `SecretRef` | Yes | Reference to secret containing unseal keys |
+| `unsealKeysSecretRef.name` | `string` | Yes | Name of the secret containing unseal keys |
+| `unsealKeysSecretRef.namespace` | `string` | Yes | Namespace of the secret containing unseal keys |
+| `unsealKeysSecretRef.keyPrefix` | `string` | No | Optional prefix to filter keys in the secret. Only keys matching `<keyPrefix>0`, `<keyPrefix>1`, etc. will be used |
 | `caCertSecret` | `string` | No | Name of secret containing CA certificate (must be in same namespace as unseal keys) |
 | `tlsSkipVerify` | `bool` | No | Skip TLS certificate verification (default: false) |
 | `retryCount` | `int32` | No | Number of retry attempts for unseal jobs (default: 3) |

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/vault/api"
 )
@@ -15,18 +15,28 @@ func isHiddenFile(file string) bool {
 }
 
 // getVaultShards return a map with unseal keys
-func getVaultShards(secretPath string) (shards []string, err error) {
-	files, _ := ioutil.ReadDir(secretPath)
+func getVaultShards(secretPath string, keyPrefix string) (shards []string, err error) {
+	files, _ := os.ReadDir(secretPath)
 	for _, file := range files {
-		filePath := secretPath + "/" + file.Name()
-		if !isHiddenFile(file.Name()) {
-			content, err := ioutil.ReadFile(filePath)
-			if err != nil {
-				log.Fatalf("unable to read content of '%s' file: %v\n", file.Name(), err)
-				return nil, err
-			}
-			shards = append(shards, string(content))
+		fileName := file.Name()
+		// Skip hidden files
+		if isHiddenFile(fileName) {
+			continue
 		}
+		// If keyPrefix is set, only include files that start with the prefix
+		if keyPrefix != "" && !strings.HasPrefix(fileName, keyPrefix) {
+			log.Printf("Skipping file '%s' (does not match prefix '%s')\n", fileName, keyPrefix)
+			continue
+		}
+
+		filePath := secretPath + "/" + fileName
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			log.Fatalf("unable to read content of '%s' file: %v\n", fileName, err)
+			return nil, err
+		}
+		log.Printf("Using unseal key from file: %s\n", fileName)
+		shards = append(shards, string(content))
 	}
 	return shards, nil
 }
@@ -42,6 +52,7 @@ func main() {
 	}
 
 	nodeAddr := os.Getenv("VAULT_ADDR")
+	keyPrefix := os.Getenv("UNSEALER_KEY_PREFIX") // Optional: filter keys by prefix
 
 	// Configure Client
 	config := api.DefaultConfig()
@@ -51,10 +62,17 @@ func main() {
 	}
 
 	// Do Unseal for each unseal key
-	shards, err := getVaultShards(os.Getenv("UNSEALER_SECRET_PATH"))
+	shards, err := getVaultShards(os.Getenv("UNSEALER_SECRET_PATH"), keyPrefix)
 	if err != nil {
 		log.Fatalf("unable to get unseal secret path: %v\n", err)
 	}
+
+	if len(shards) == 0 {
+		log.Fatalf("no unseal keys found in secret path (prefix: '%s')\n", keyPrefix)
+	}
+
+	log.Printf("Found %d unseal key(s) to use\n", len(shards))
+
 	for _, keyShard := range shards {
 		r, err := client.Sys().Unseal(keyShard)
 		if err != nil {

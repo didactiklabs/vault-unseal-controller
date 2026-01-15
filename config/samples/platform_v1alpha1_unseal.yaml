@@ -10,6 +10,10 @@ spec:
   unsealKeysSecretRef:
     name: thresholdkeys
     namespace: vault-unseal-controller-system
+    # Optional: filter keys by prefix. Only keys starting with this prefix will be used.
+    # Keys must be named: <keyPrefix>0, <keyPrefix>1, <keyPrefix>2, etc.
+    # Example: if keyPrefix is "vault-unseal-", secret should contain: vault-unseal-0, vault-unseal-1, vault-unseal-2
+    # keyPrefix: vault-unseal-
   # Optional, but important if you have internal pki for your vault certificate (need to be in the same namespace as the unseal keys secret)
   caCertSecret: cacertificate
   # Optional, set this parameter to true if you want to skip tls certificate verification
