@@ -37,6 +37,11 @@ type SecretRef struct {
 	// Namespace of the secret
 	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace"`
+	// KeyPrefix is an optional prefix to filter keys in the secret. Only keys matching this prefix will be used as unseal keys.
+	// Keys must be named with the prefix followed by sequential numbers (0, 1, 2, ...).
+	// Example: if keyPrefix is "vault-unseal-", the secret should contain keys named "vault-unseal-0", "vault-unseal-1", etc.
+	// +optional
+	KeyPrefix string `json:"keyPrefix,omitempty"`
 }
 
 // UnsealSpec defines the desired state of Unseal

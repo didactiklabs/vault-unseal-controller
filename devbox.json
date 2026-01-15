@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "kustomize@latest",
+    "kubebuilder@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo ''",
+      "# Count packages",
+      "PKG_COUNT=$(devbox list 2>/dev/null | grep -c '^\\*')",
+      "echo -e \"\\033[1;33m📦 Available tools ($PKG_COUNT packages):\\033[0m\"",
+      "# Display packages with clean format",
+      "(",
+      "  devbox list 2>/dev/null | sed '/^\\* path:/d' | sed 's/^\\* //' | awk -F' - ' '{",
+      "    if (NF == 2) {",
+      "      pkg = $1;",
+      "      # Remove @latest or @version from package name",
+      "      gsub(/@latest/, \"\", pkg);",
+      "      # Extract version number",
+      "      ver = $2;",
+      "      printf \"%s|%s\\n\", pkg, ver",
+      "    } else {",
+      "      # Handle packages with pinned version but no resolved version display",
+      "      split($0, parts, \"@\");",
+      "      if (length(parts) == 2) {",
+      "        printf \"%s|%s\\n\", parts[1], parts[2]",
+      "      }",
+      "    }",
+      "  }'",
+      "  # Add flake packages",
+      "  if devbox list 2>/dev/null | grep -q 'path:' && [ -f flake.nix ]; then",
+      "    awk '/pname = / { pname=$3; gsub(/[\";\"]/, \"\", pname) } /version = / && pname { version=$3; gsub(/[\";\"]/, \"\", version); printf \"%s|%s\\n\", pname, version; pname=\"\" }' flake.nix",
+      "  fi",
+      ") | column -t -s'|' | awk '{printf \"  \\033[32m✓\\033[0m %s\\t\\033[90m%s\\033[0m\\n\", $1, $2}'",
+      "echo ''",
+      "echo -e '\\033[1;33m🔧 Available binaries:\\033[0m'",
+      "echo $PATH | tr ':' '\\n' | grep -m1 '.devbox/nix/profile' | xargs -I {} ls {} 2>/dev/null | sort -u | sed 's/^/  /'",
+      "echo ''"
+    ]
+  }
+}
